@@ -1,0 +1,14 @@
+FROM debian:stable-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl ca-certificates && \
+    rm -rf /var/lib/apt/lists/* && \
+    useradd -m -s /bin/bash app
+
+USER app
+ENV PATH=/home/app/.local/bin:$PATH
+
+RUN curl -fsSL https://claude.ai/install.sh | bash
+
+WORKDIR /home/app
+CMD ["bash"]

@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CWRAP_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cwrap"
+
+# ---------------------------------------------------------------------------
+# Arg parsing
+# ---------------------------------------------------------------------------
+DO_BUILD=0
+INSTANCE=""
+CLI_DIRS=()
+PASSTHROUGH=()
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        build)
+            DO_BUILD=1
+            shift
+            ;;
+        -i|--instance)
+            [[ $# -lt 2 ]] && { echo "cwrap: -i requires an argument" >&2; exit 1; }
+            INSTANCE="$2"
+            shift 2
+            ;;
+        -a|--add-dir)
+            shift
+            while [[ $# -gt 0 && "$1" != -* ]]; do
+                CLI_DIRS+=("$1")
+                shift
+            done
+            ;;
+        --)
+            shift
+            PASSTHROUGH+=("$@")
+            break
+            ;;
+        *)
+            PASSTHROUGH+=("$1")
+            shift
+            ;;
+    esac
+done
+
+# ---------------------------------------------------------------------------
+# Runtime
+# ---------------------------------------------------------------------------
+if ! command -v podman &>/dev/null; then
+    echo "cwrap: podman not found" >&2
+    exit 1
+fi
+RUNTIME=podman
+
+# ---------------------------------------------------------------------------
+# Source global config (sets default_instance)
+# ---------------------------------------------------------------------------
+if [[ -f "$CWRAP_DIR/config" ]]; then
+    # shellcheck source=/dev/null
+    source "$CWRAP_DIR/config"
+fi
+
+# Resolve instance
+if [[ -z "$INSTANCE" ]]; then
+    INSTANCE="${default_instance:-}"
+fi
+if [[ -z "$INSTANCE" ]]; then
+    echo "cwrap: no instance specified and no default_instance in $CWRAP_DIR/config" >&2
+    exit 1
+fi
+
+# Validate instance name
+if [[ "$INSTANCE" =~ \.\. ]] || [[ ! "$INSTANCE" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
+    echo "cwrap: invalid instance name: $INSTANCE" >&2
+    exit 1
+fi
+
+INSTANCE_DIR="$CWRAP_DIR/instances/$INSTANCE"
+
+# ---------------------------------------------------------------------------
+# build
+# ---------------------------------------------------------------------------
+if [[ "$DO_BUILD" -eq 1 ]]; then
+    mkdir -p "$INSTANCE_DIR"
+    exec "$RUNTIME" build -t "cwrap-${INSTANCE}:latest" -f "$INSTANCE_DIR/Containerfile" "$INSTANCE_DIR"
+fi
+
+# ---------------------------------------------------------------------------
+# run
+# ---------------------------------------------------------------------------
+
+# Source instance config (sets CWRAP_DIRS)
+CWRAP_DIRS=()
+if [[ -f "$INSTANCE_DIR/cwrap.conf" ]]; then
+    # shellcheck source=/dev/null
+    source "$INSTANCE_DIR/cwrap.conf"
+fi
+
+# Merge CLI dirs
+for d in "${CLI_DIRS[@]}"; do
+    CWRAP_DIRS+=("$d")
+done
+
+# Check image exists
+IMAGE="cwrap-${INSTANCE}:latest"
+if ! "$RUNTIME" image exists "$IMAGE" 2>/dev/null; then
+    echo "cwrap: image $IMAGE not found — run: cwrap build -i $INSTANCE" >&2
+    exit 1
+fi
+
+# Build volume flags
+VOL_FLAGS=(-v "$INSTANCE_DIR:/cwrap-home:z")
+
+# Build --add-dir flags for claude and extra volume mounts
+ADD_DIR_FLAGS=()
+for dir in "${CWRAP_DIRS[@]}"; do
+    # Expand ~ manually since the path may come from a config file
+    dir="${dir/#\~/$HOME}"
+    VOL_FLAGS+=(-v "$dir:$dir:z")
+    ADD_DIR_FLAGS+=(--add-dir "$dir")
+done
+
+# Pass through ANTHROPIC_* env vars
+ENV_FLAGS=()
+while IFS='=' read -r key _; do
+    ENV_FLAGS+=(-e "$key=${!key}")
+done < <(env | grep '^ANTHROPIC_')
+
+CMD_ARGS=()
+if [[ ${#PASSTHROUGH[@]} -gt 0 ]]; then
+    CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${PASSTHROUGH[@]}")
+fi
+
+exec "$RUNTIME" run --rm -it --userns=keep-id \
+    -e HOME=/cwrap-home \
+    "${ENV_FLAGS[@]}" \
+    "${VOL_FLAGS[@]}" \
+    "$IMAGE" \
+    "${CMD_ARGS[@]+"${CMD_ARGS[@]}"}"

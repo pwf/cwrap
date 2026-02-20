@@ -108,10 +108,11 @@ VOL_FLAGS=(-v "$INSTANCE_DIR:/cwrap-home:z")
 
 # Build --add-dir flags for claude and extra volume mounts
 ADD_DIR_FLAGS=()
+declare -A _seen_dirs=()
 for dir in "${CWRAP_DIRS[@]}"; do
-    # Expand ~ and resolve relative paths
-    dir="${dir/#\~/$HOME}"
-    [[ "$dir" = /* ]] || dir="$PWD/$dir"
+    dir="$(realpath -m "$dir")"
+    [[ -n "${_seen_dirs[$dir]+x}" ]] && continue
+    _seen_dirs[$dir]=1
     VOL_FLAGS+=(-v "$dir:$dir:z")
     ADD_DIR_FLAGS+=(--add-dir "$dir")
 done
@@ -122,9 +123,10 @@ while IFS='=' read -r key _; do
     ENV_FLAGS+=(-e "$key=${!key}")
 done < <(env | grep '^ANTHROPIC_')
 
-CMD_ARGS=()
 if [[ ${#PASSTHROUGH[@]} -gt 0 ]]; then
     CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${PASSTHROUGH[@]}")
+else
+    CMD_ARGS=(bash)
 fi
 
 exec "$RUNTIME" run --rm -it --userns=keep-id \
@@ -132,4 +134,4 @@ exec "$RUNTIME" run --rm -it --userns=keep-id \
     "${ENV_FLAGS[@]}" \
     "${VOL_FLAGS[@]}" \
     "$IMAGE" \
-    "${CMD_ARGS[@]+"${CMD_ARGS[@]}"}"
+    "${CMD_ARGS[@]}"

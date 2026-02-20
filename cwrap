@@ -22,20 +22,17 @@ while [[ $# -gt 0 ]]; do
             INSTANCE="$2"
             shift 2
             ;;
-        -a|--add-dir)
-            shift
-            while [[ $# -gt 0 && "$1" != -* ]]; do
-                CLI_DIRS+=("$1")
-                shift
-            done
-            ;;
         --)
             shift
             PASSTHROUGH+=("$@")
             break
             ;;
+        -*)
+            echo "cwrap: unknown option: $1" >&2
+            exit 1
+            ;;
         *)
-            PASSTHROUGH+=("$1")
+            CLI_DIRS+=("$1")
             shift
             ;;
     esac
@@ -112,8 +109,9 @@ VOL_FLAGS=(-v "$INSTANCE_DIR:/cwrap-home:z")
 # Build --add-dir flags for claude and extra volume mounts
 ADD_DIR_FLAGS=()
 for dir in "${CWRAP_DIRS[@]}"; do
-    # Expand ~ manually since the path may come from a config file
+    # Expand ~ and resolve relative paths
     dir="${dir/#\~/$HOME}"
+    [[ "$dir" = /* ]] || dir="$PWD/$dir"
     VOL_FLAGS+=(-v "$dir:$dir:z")
     ADD_DIR_FLAGS+=(--add-dir "$dir")
 done

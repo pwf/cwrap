@@ -22,9 +22,9 @@ Podman wrapper around the `claude` CLI. Each instance gets an isolated home dire
 ## Usage
 
 ```
-cwrap build [-i <instance>]        # build image from instances/<name>/Containerfile
-cwrap [-i <instance>] [-a <dir>]   # drop into bash (mounts only)
-cwrap [-i <instance>] -- <args>    # run: claude --add-dir <dirs> <args>
+cwrap build [-i <instance>]              # build image from instances/<name>/Containerfile
+cwrap [-i <instance>] [dir...]           # drop into bash (mounts only)
+cwrap [-i <instance>] [dir...] -- <args> # run: claude --add-dir <dirs> <args>
 ```
 
 ## Key design decisions

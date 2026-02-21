@@ -117,8 +117,11 @@ for dir in "${CWRAP_DIRS[@]}"; do
     ADD_DIR_FLAGS+=(--add-dir "$dir")
 done
 
-# Pass through ANTHROPIC_* env vars
+# Pass through terminal detection and ANTHROPIC_* env vars
 ENV_FLAGS=()
+for var in TERM COLORTERM TERM_PROGRAM TERM_PROGRAM_VERSION; do
+    [[ -n "${!var+x}" ]] && ENV_FLAGS+=(-e "$var=${!var}")
+done
 while IFS='=' read -r key _; do
     ENV_FLAGS+=(-e "$key=${!key}")
 done < <(env | grep '^ANTHROPIC_')

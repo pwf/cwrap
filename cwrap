@@ -71,6 +71,7 @@ if [[ "$INSTANCE" =~ \.\. ]] || [[ ! "$INSTANCE" =~ ^[a-zA-Z0-9_.-]+$ ]]; then
 fi
 
 INSTANCE_DIR="$CWRAP_DIR/instances/$INSTANCE"
+INSTANCE_HOME_DIR="$CWRAP_DIR/instances/$INSTANCE/home"
 
 # ---------------------------------------------------------------------------
 # build
@@ -103,8 +104,10 @@ if ! "$RUNTIME" image exists "$IMAGE" 2>/dev/null; then
     exit 1
 fi
 
-# Build volume flags
-VOL_FLAGS=(-v "$INSTANCE_DIR:/cwrap-home:z")
+# Build volume flags — mount only the claude config dir, not the whole instance dir,
+# so the claude binary built into the image at /home/cwrap/.local/bin stays visible.
+mkdir -p "$INSTANCE_HOME_DIR/.config/claude"
+VOL_FLAGS=(-v "$INSTANCE_HOME_DIR:/home/cwrap:z")
 
 # Build --add-dir flags for claude and extra volume mounts
 ADD_DIR_FLAGS=()
@@ -133,7 +136,6 @@ else
 fi
 
 exec "$RUNTIME" run --rm -it --userns=keep-id \
-    -e HOME=/cwrap-home \
     "${ENV_FLAGS[@]}" \
     "${VOL_FLAGS[@]}" \
     "$IMAGE" \

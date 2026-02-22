@@ -25,7 +25,7 @@ cwrap [-i <instance>] [-a <dir>...] [claude args...]
         └── .config/claude/ # claude's default config path ($HOME/.config/claude/)
 ```
 
-Sourced as bash. The instance dir is mounted as `HOME=/cwrap-home` inside the container. Claude uses `$HOME/.config/claude/` as normal — no overrides needed.
+Sourced as bash. The instance dir is mounted as `HOME=/cwrap` inside the container. Claude uses `$HOME/.config/claude/` as normal — no overrides needed.
 
 ## Setup
 

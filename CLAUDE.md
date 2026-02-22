@@ -13,10 +13,11 @@ Podman wrapper around the `claude` CLI. Each instance gets an isolated home dire
 ```
 ~/.config/cwrap/
 ├── config                          # global: default_instance=<name>
-└── instances/<name>/home/          # .config/claude/ bind-mounted into /cwrap at runtime
+└── instances/<name>/
     ├── Containerfile               # per-instance image (build context is this dir)
     ├── cwrap.conf                  # CWRAP_DIRS=(...) — sourced as bash
-    └── .config/claude/             # claude's normal config path (mounted into container)
+    └── home/                       # mounted as /home/cwrap inside container
+        └── .config/claude/         # claude's normal config path
 ```
 
 ## Usage
@@ -31,10 +32,10 @@ cwrap [-i <instance>] [dir...] -- <args> # run: claude --add-dir <dirs> <args>
 
 - **Podman only** — no Docker fallback; `--userns=keep-id` for rootless UID mapping
 - **Per-instance Containerfile** — lives in the instance dir, build context is that dir
-- **No PWD mount** — only `/home/cwrap` + dirs from `CWRAP_DIRS`/`-a` are visible
+- **No PWD mount** — only `/home/cwrap` + dirs from `CWRAP_DIRS`/positional args are visible
 - **bash by default** — `CMD ["bash"]`; claude only runs when passthrough args are given
 - **`CWRAP_DIRS`** — mounts dirs and stages `--add-dir` flags, but does not auto-launch claude
 - **Native claude install** — `curl -fsSL https://claude.ai/install.sh | bash` (npm is deprecated)
-- **Non-root user** `app` — home is `/home/cwrap`; binary at `/home/cwrap/.local/bin/claude`; PATH set in image
+- **Non-root user** `cwrap` — home is `/home/cwrap`; binary at `/home/cwrap/.local/bin/claude`; PATH set in image
 - **`ANTHROPIC_*`** env vars forwarded from host
 - **`:z`** on all volumes — SELinux relabeling, no-op elsewhere

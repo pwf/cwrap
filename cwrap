@@ -135,8 +135,14 @@ else
     CMD_ARGS=(bash)
 fi
 
+WORKDIR_FLAGS=()
+if [[ ${#CLI_DIRS[@]} -gt 0 ]]; then
+    WORKDIR_FLAGS=(-w "$(realpath -m "${CLI_DIRS[0]}")")
+fi
+
 exec "$RUNTIME" run --rm -it --userns=keep-id \
     "${ENV_FLAGS[@]}" \
     "${VOL_FLAGS[@]}" \
+    "${WORKDIR_FLAGS[@]}" \
     "$IMAGE" \
     "${CMD_ARGS[@]}"

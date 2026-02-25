@@ -13,6 +13,26 @@ PASSTHROUGH=()
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
+        help|--help|-h)
+            cat <<'EOF'
+Usage:
+  cwrap build [-i <instance>]              build image from instances/<name>/Containerfile
+  cwrap [-i <instance>] [dir...]           drop into bash inside the container
+  cwrap [-i <instance>] [dir...] -- <args> run: claude --add-dir <dirs> <args>
+
+Options:
+  -i, --instance <name>  use a specific instance (default: default_instance from config)
+  -h, --help             show this help
+
+Config: ~/.config/cwrap/
+  config                     global config (default_instance=<name>)
+  instances/<name>/
+    Containerfile            per-instance image definition
+    cwrap.conf               CWRAP_DIRS=(...) — extra dirs to mount
+    home/                    mounted as /home/cwrap inside container
+EOF
+            exit 0
+            ;;
         build)
             DO_BUILD=1
             shift

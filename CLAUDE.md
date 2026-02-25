@@ -36,6 +36,6 @@ cwrap [-i <instance>] [dir...] -- <args> # run: claude --add-dir <dirs> <args>
 - **bash by default** — `CMD ["bash"]`; claude only runs when passthrough args are given
 - **`CWRAP_DIRS`** — mounts dirs and stages `--add-dir` flags, but does not auto-launch claude
 - **Native claude install** — `curl -fsSL https://claude.ai/install.sh | bash` (npm is deprecated)
-- **Non-root user** `cwrap` — home is `/home/cwrap`; binary at `/home/cwrap/.local/bin/claude`; PATH set in image
+- **Non-root user** `cwrap` — home is `/home/cwrap`; claude installed system-wide at `/usr/local/bin/claude` (so home mount doesn't shadow it)
 - **`ANTHROPIC_*`** env vars forwarded from host
 - **`:z`** on all volumes — SELinux relabeling, no-op elsewhere

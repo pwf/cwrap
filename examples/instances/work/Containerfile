@@ -3,12 +3,11 @@ FROM debian:stable-slim
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl ca-certificates git && \
     rm -rf /var/lib/apt/lists/* && \
-    useradd -m -d /home/cwrap -s /bin/bash cwrap
+    useradd -m -d /home/cwrap -s /bin/bash cwrap && \
+    curl -fsSL https://claude.ai/install.sh | bash && \
+    install -m 755 "$(readlink -f /root/.local/bin/claude)" /usr/local/bin/claude
 
 USER cwrap
-ENV PATH=/home/cwrap/.local/bin:$PATH
-
-RUN curl -fsSL https://claude.ai/install.sh | bash
-
+ENV PATH=/usr/local/bin:$PATH
 WORKDIR /home/cwrap
 CMD ["bash"]

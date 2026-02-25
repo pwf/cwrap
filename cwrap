@@ -124,8 +124,6 @@ if ! "$RUNTIME" image exists "$IMAGE" 2>/dev/null; then
     exit 1
 fi
 
-# Build volume flags — mount only the claude config dir, not the whole instance dir,
-# so the claude binary built into the image at /home/cwrap/.local/bin stays visible.
 mkdir -p "$INSTANCE_HOME_DIR/.config/claude"
 VOL_FLAGS=(-v "$INSTANCE_HOME_DIR:/home/cwrap:z")
 

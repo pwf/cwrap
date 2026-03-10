@@ -150,7 +150,7 @@ done < <(env | grep '^ANTHROPIC_')
 if [[ ${#PASSTHROUGH[@]} -gt 0 ]]; then
     CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${PASSTHROUGH[@]}")
 else
-    CMD_ARGS=(bash)
+    CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}")
 fi
 
 WORKDIR_FLAGS=()

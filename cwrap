@@ -147,6 +147,15 @@ while IFS='=' read -r key _; do
     ENV_FLAGS+=(-e "$key=${!key}")
 done < <(env | grep '^ANTHROPIC_')
 
+# Forward Wayland socket so chromium can render on the host display
+if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
+    _wayland_sock="$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
+    if [[ -S "$_wayland_sock" ]]; then
+        ENV_FLAGS+=(-e "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" -e "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR")
+        VOL_FLAGS+=(-v "$_wayland_sock:$_wayland_sock")
+    fi
+fi
+
 if [[ ${#PASSTHROUGH[@]} -gt 0 ]]; then
     CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${PASSTHROUGH[@]}")
 else

@@ -17,8 +17,9 @@ while [[ $# -gt 0 ]]; do
             cat <<'EOF'
 Usage:
   cwrap build [-i <instance>]              build image from instances/<name>/Containerfile
-  cwrap [-i <instance>] [dir...]           drop into bash inside the container
-  cwrap [-i <instance>] [dir...] -- <args> run: claude --add-dir <dirs> <args>
+  cwrap [-i <instance>] [dir...]                       run claude inside the container
+  cwrap [-i <instance>] [dir...] --resume|--continue <id>  resume a claude session
+  cwrap [-i <instance>] [dir...] -- <args>            run: claude --add-dir <dirs> <args>
 
 Options:
   -i, --instance <name>  use a specific instance (default: default_instance from config)
@@ -46,6 +47,14 @@ EOF
             shift
             PASSTHROUGH+=("$@")
             break
+            ;;
+        --resume|--continue)
+            PASSTHROUGH+=("$1")
+            shift
+            if [[ $# -gt 0 && "$1" != -* ]]; then
+                PASSTHROUGH+=("$1")
+                shift
+            fi
             ;;
         -*)
             echo "cwrap: unknown option: $1" >&2

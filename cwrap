@@ -7,6 +7,7 @@ CWRAP_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cwrap"
 # Arg parsing
 # ---------------------------------------------------------------------------
 DO_BUILD=0
+BUILD_NO_CACHE=0
 INSTANCE=""
 CLI_DIRS=()
 PASSTHROUGH=()
@@ -16,7 +17,7 @@ while [[ $# -gt 0 ]]; do
         help|--help|-h)
             cat <<'EOF'
 Usage:
-  cwrap build [-i <instance>]              build image from instances/<name>/Containerfile
+  cwrap build [-u] [-i <instance>]         build image from instances/<name>/Containerfile
   cwrap [-i <instance>] [dir...]                       run claude inside the container
   cwrap [-i <instance>] [dir...] -r|--resume <id>    resume a claude session
   cwrap [-i <instance>] [dir...] -c|--continue <id>  continue a claude session
@@ -24,6 +25,7 @@ Usage:
 
 Options:
   -i, --instance <name>  use a specific instance (default: default_instance from config)
+  -u, --upgrade          (build) rebuild image from scratch, ignoring cache
   -h, --help             show this help
 
 Config: ~/.config/cwrap/
@@ -37,6 +39,10 @@ EOF
             ;;
         build)
             DO_BUILD=1
+            shift
+            ;;
+        -u|--upgrade)
+            BUILD_NO_CACHE=1
             shift
             ;;
         -i|--instance)
@@ -116,7 +122,9 @@ INSTANCE_HOME_DIR="$CWRAP_DIR/instances/$INSTANCE/home"
 # ---------------------------------------------------------------------------
 if [[ "$DO_BUILD" -eq 1 ]]; then
     mkdir -p "$INSTANCE_DIR"
-    exec "$RUNTIME" build -t "cwrap-${INSTANCE}:latest" -f "$INSTANCE_DIR/Containerfile" "$INSTANCE_DIR"
+    BUILD_FLAGS=()
+    [[ "$BUILD_NO_CACHE" -eq 1 ]] && BUILD_FLAGS+=(--no-cache)
+    exec "$RUNTIME" build "${BUILD_FLAGS[@]}" -t "cwrap-${INSTANCE}:latest" -f "$INSTANCE_DIR/Containerfile" "$INSTANCE_DIR"
 fi
 
 # ---------------------------------------------------------------------------

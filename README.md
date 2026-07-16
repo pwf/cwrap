@@ -13,6 +13,7 @@ cwrap [-i <instance>] [dir...] -- <claude args...>
 - `-i/--instance` — which instance; optional if `default_instance` set in config
 - `[dir...]` — dirs to bind-mount and pass as `--add-dir` to claude
 - `build` — first positional arg: build the container image
+- `--yolo` — run claude with `--dangerously-skip-permissions`
 - `-- <args>` — everything after `--` passes through to claude
 
 ## Config

@@ -8,6 +8,7 @@ CWRAP_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/cwrap"
 # ---------------------------------------------------------------------------
 DO_BUILD=0
 BUILD_NO_CACHE=0
+YOLO=0
 INSTANCE=""
 CLI_DIRS=()
 PASSTHROUGH=()
@@ -26,6 +27,7 @@ Usage:
 Options:
   -i, --instance <name>  use a specific instance (default: default_instance from config)
   -u, --upgrade          (build) rebuild image from scratch, ignoring cache
+  --yolo                 run claude with --dangerously-skip-permissions
   -h, --help             show this help
 
 Config: ~/.config/cwrap/
@@ -43,6 +45,10 @@ EOF
             ;;
         -u|--upgrade)
             BUILD_NO_CACHE=1
+            shift
+            ;;
+        --yolo)
+            YOLO=1
             shift
             ;;
         -i|--instance)
@@ -182,10 +188,13 @@ if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
     fi
 fi
 
+YOLO_FLAGS=()
+[[ "$YOLO" -eq 1 ]] && YOLO_FLAGS+=(--dangerously-skip-permissions)
+
 if [[ ${#PASSTHROUGH[@]} -gt 0 ]]; then
-    CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${PASSTHROUGH[@]}")
+    CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${YOLO_FLAGS[@]}" "${PASSTHROUGH[@]}")
 else
-    CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}")
+    CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${YOLO_FLAGS[@]}")
 fi
 
 WORKDIR_FLAGS=()

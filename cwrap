@@ -10,8 +10,13 @@ DO_BUILD=0
 BUILD_NO_CACHE=0
 YOLO=0
 INSTANCE=""
+AGENT=""
 CLI_DIRS=()
 PASSTHROUGH=()
+SESSION_INDEX=-1
+SESSION_MODE=""
+SESSION_HAS_ID=0
+SESSION_COUNT=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -19,22 +24,24 @@ while [[ $# -gt 0 ]]; do
             cat <<'EOF'
 Usage:
   cwrap build [-u] [-i <instance>]         build image from instances/<name>/Containerfile
-  cwrap [-i <instance>] [dir...]                       run claude inside the container
-  cwrap [-i <instance>] [dir...] -r|--resume <id>    resume a claude session
-  cwrap [-i <instance>] [dir...] -c|--continue <id>  continue a claude session
-  cwrap [-i <instance>] [dir...] -- <args>            run: claude --add-dir <dirs> <args>
+  cwrap [--agent claude|codex] [-i <instance>] [dir...]  run the selected agent
+  cwrap [options] [dir...] -r|--resume [id]             resume a session (picker without id)
+  cwrap [options] [dir...] -c|--continue [id]           continue (Codex: resume --last without id)
+  cwrap [options] [dir...] -- <args>                   pass native agent args unchanged
 
 Options:
   -i, --instance <name>  use a specific instance (default: default_instance from config)
+  --agent <name>         claude or codex (CLI > instance default_agent > global > claude)
   -u, --upgrade          (build) rebuild image from scratch, ignoring cache
-  --yolo                 run claude with --dangerously-skip-permissions
+  --yolo                Claude: --dangerously-skip-permissions
+                        Codex: --dangerously-bypass-approvals-and-sandbox (no inner sandbox!)
   -h, --help             show this help
 
 Config: ~/.config/cwrap/
-  config                     global config (default_instance=<name>)
+  config                     global config (default_instance=<name>, default_agent=claude|codex)
   instances/<name>/
     Containerfile            per-instance image definition
-    cwrap.conf               CWRAP_DIRS=(...) — extra dirs to mount
+    cwrap.conf               CWRAP_DIRS=(...), optional default_agent=claude|codex
     home/                    mounted as /home/cwrap inside container
 EOF
             exit 0
@@ -46,6 +53,15 @@ EOF
         -u|--upgrade)
             BUILD_NO_CACHE=1
             shift
+            ;;
+        --agent)
+            [[ $# -lt 2 ]] && { echo "cwrap: --agent requires an argument" >&2; exit 1; }
+            AGENT="$2"
+            case "$AGENT" in
+                claude|codex) ;;
+                *) echo "cwrap: invalid agent: $AGENT (expected claude or codex)" >&2; exit 1 ;;
+            esac
+            shift 2
             ;;
         --yolo)
             YOLO=1
@@ -62,6 +78,9 @@ EOF
             break
             ;;
         --resume|-r)
+            SESSION_COUNT=$((SESSION_COUNT + 1))
+            SESSION_INDEX=${#PASSTHROUGH[@]}
+            SESSION_MODE=resume
             PASSTHROUGH+=("--resume")
             shift
             if [[ $# -gt 0 && "$1" != -* ]]; then
@@ -70,9 +89,14 @@ EOF
             fi
             ;;
         --continue|-c)
+            SESSION_COUNT=$((SESSION_COUNT + 1))
+            SESSION_INDEX=${#PASSTHROUGH[@]}
+            SESSION_MODE=continue
+            SESSION_HAS_ID=0
             PASSTHROUGH+=("--continue")
             shift
             if [[ $# -gt 0 && "$1" != -* ]]; then
+                SESSION_HAS_ID=1
                 PASSTHROUGH+=("$1")
                 shift
             fi
@@ -144,6 +168,18 @@ if [[ -f "$INSTANCE_DIR/cwrap.conf" ]]; then
     source "$INSTANCE_DIR/cwrap.conf"
 fi
 
+# Resolve agent after instance config; the explicit CLI selection wins.
+AGENT="${AGENT:-${default_agent:-claude}}"
+case "$AGENT" in
+    claude|codex) ;;
+    *) echo "cwrap: invalid agent: $AGENT (expected claude or codex)" >&2; exit 1 ;;
+esac
+
+if [[ "$AGENT" == codex && "$SESSION_COUNT" -gt 1 ]]; then
+    echo "cwrap: codex accepts only one session selector" >&2
+    exit 1
+fi
+
 # Merge CLI dirs
 for d in "${CLI_DIRS[@]}"; do
     CWRAP_DIRS+=("$d")
@@ -159,7 +195,7 @@ fi
 mkdir -p "$INSTANCE_HOME_DIR/.config/claude"
 VOL_FLAGS=(-v "$INSTANCE_HOME_DIR:/home/cwrap:z")
 
-# Build --add-dir flags for claude and extra volume mounts
+# Build --add-dir flags for either agent and extra volume mounts
 ADD_DIR_FLAGS=()
 declare -A _seen_dirs=()
 for dir in "${CWRAP_DIRS[@]}"; do
@@ -170,14 +206,21 @@ for dir in "${CWRAP_DIRS[@]}"; do
     ADD_DIR_FLAGS+=(--add-dir "$dir")
 done
 
-# Pass through terminal detection and ANTHROPIC_* env vars
+# Pass through terminal detection, then the selected agent's environment
 ENV_FLAGS=()
 for var in TERM COLORTERM TERM_PROGRAM TERM_PROGRAM_VERSION; do
     [[ -n "${!var+x}" ]] && ENV_FLAGS+=(-e "$var=${!var}")
 done
-while IFS='=' read -r key _; do
-    ENV_FLAGS+=(-e "$key=${!key}")
-done < <(env | grep '^ANTHROPIC_')
+# Agent-specific host environment allowlist. Never inherit host auth/config homes.
+if [[ "$AGENT" == claude ]]; then
+    while IFS='=' read -r key _; do
+        ENV_FLAGS+=(-e "$key=${!key}")
+    done < <(env | grep '^ANTHROPIC_')
+else
+    for var in OPENAI_API_KEY; do
+        [[ -n "${!var+x}" ]] && ENV_FLAGS+=(-e "$var=${!var}")
+    done
+fi
 
 # Forward Wayland socket so chromium can render on the host display
 if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
@@ -189,12 +232,24 @@ if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
 fi
 
 YOLO_FLAGS=()
-[[ "$YOLO" -eq 1 ]] && YOLO_FLAGS+=(--dangerously-skip-permissions)
+if [[ "$AGENT" == codex && "$SESSION_INDEX" -ge 0 ]]; then
+    PASSTHROUGH[$SESSION_INDEX]=resume
+    if [[ "$SESSION_MODE" == continue && "$SESSION_HAS_ID" -eq 0 ]]; then
+        PASSTHROUGH=("${PASSTHROUGH[@]:0:$((SESSION_INDEX + 1))}" --last "${PASSTHROUGH[@]:$((SESSION_INDEX + 1))}")
+    fi
+fi
+if [[ "$YOLO" -eq 1 ]]; then
+    if [[ "$AGENT" == codex ]]; then
+        YOLO_FLAGS+=(--dangerously-bypass-approvals-and-sandbox)
+    else
+        YOLO_FLAGS+=(--dangerously-skip-permissions)
+    fi
+fi
 
 if [[ ${#PASSTHROUGH[@]} -gt 0 ]]; then
-    CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${YOLO_FLAGS[@]}" "${PASSTHROUGH[@]}")
+    CMD_ARGS=("$AGENT" "${ADD_DIR_FLAGS[@]}" "${YOLO_FLAGS[@]}" "${PASSTHROUGH[@]}")
 else
-    CMD_ARGS=(claude "${ADD_DIR_FLAGS[@]}" "${YOLO_FLAGS[@]}")
+    CMD_ARGS=("$AGENT" "${ADD_DIR_FLAGS[@]}" "${YOLO_FLAGS[@]}")
 fi
 
 WORKDIR_FLAGS=()

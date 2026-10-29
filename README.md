@@ -1,6 +1,6 @@
 # cwrap
 
-Wrapper over `claude` CLI that isolates instances (personal, work, …) via containers. Each instance gets its own home directory (bind-mounted from the host) so claude finds config, history, MCP servers at the default `$HOME/.config/claude/` path without any overrides. Only explicitly granted directories are visible inside the container. Requires [Podman](https://podman.io/) for OS-level isolation.
+Wrapper over `claude`/`codex` CLI that isolates instances (personal, work, …) via containers. Each instance gets its own home directory (bind-mounted from the host) so claude finds config, history, MCP servers at the default `$HOME/.config/claude/` path without any overrides. Only explicitly granted directories are visible inside the container. Requires [Podman](https://podman.io/) for OS-level isolation.
 
 ## Usage
 

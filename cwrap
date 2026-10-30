@@ -244,6 +244,9 @@ if [[ "$YOLO" -eq 1 ]]; then
     else
         YOLO_FLAGS+=(--dangerously-skip-permissions)
     fi
+elif [[ "$AGENT" == codex ]]; then
+    # Permit --add-dir roots without overriding network or approval settings.
+    YOLO_FLAGS+=(--sandbox workspace-write)
 fi
 
 if [[ ${#PASSTHROUGH[@]} -gt 0 ]]; then

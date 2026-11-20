@@ -24,14 +24,14 @@ while [[ $# -gt 0 ]]; do
             cat <<'EOF'
 Usage:
   cwrap build [-u] [-i <instance>]         build image from instances/<name>/Containerfile
-  cwrap [--agent claude|codex] [-i <instance>] [dir...]  run the selected agent
+  cwrap [-a claude|codex] [-i <instance>] [dir...]  run the selected agent
   cwrap [options] [dir...] -r|--resume [id]             resume a session (picker without id)
   cwrap [options] [dir...] -c|--continue [id]           continue (Codex: resume --last without id)
   cwrap [options] [dir...] -- <args>                   pass native agent args unchanged
 
 Options:
   -i, --instance <name>  use a specific instance (default: default_instance from config)
-  --agent <name>         claude or codex (CLI > instance default_agent > global > claude)
+  -a, --agent <name>     claude or codex (CLI > instance default_agent > global > claude)
   -u, --upgrade          (build) rebuild image from scratch, ignoring cache
   --yolo                Claude: --dangerously-skip-permissions
                         Codex: --dangerously-bypass-approvals-and-sandbox (no inner sandbox!)
@@ -54,8 +54,8 @@ EOF
             BUILD_NO_CACHE=1
             shift
             ;;
-        --agent)
-            [[ $# -lt 2 ]] && { echo "cwrap: --agent requires an argument" >&2; exit 1; }
+        -a|--agent)
+            [[ $# -lt 2 ]] && { echo "cwrap: -a requires an argument" >&2; exit 1; }
             AGENT="$2"
             case "$AGENT" in
                 claude|codex) ;;

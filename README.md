@@ -11,7 +11,7 @@ cwrap [-i <instance>] [dir...] -- <claude args...>
 ```
 
 - `-i/--instance` — which instance; optional if `default_instance` set in config
-- `[dir...]` — dirs to bind-mount and pass as `--add-dir` to claude
+- `[dir...]` — dirs to bind-mount; the first is the working directory. Codex also gets them as `--add-dir`; claude does not, because since 2.1.326 it asks to trust each `--add-dir` folder on every start
 - `build` — first positional arg: build the container image
 - `--yolo` — run claude with `--dangerously-skip-permissions`
 - `-- <args>` — everything after `--` passes through to claude

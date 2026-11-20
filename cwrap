@@ -195,7 +195,8 @@ fi
 mkdir -p "$INSTANCE_HOME_DIR/.config/claude"
 VOL_FLAGS=(-v "$INSTANCE_HOME_DIR:/home/cwrap:z")
 
-# Build --add-dir flags for either agent and extra volume mounts
+# Mount extra dirs. Only codex gets --add-dir (its writable sandbox roots); claude
+# >= 2.1.326 asks to trust every --add-dir folder on each start and never saves it.
 ADD_DIR_FLAGS=()
 declare -A _seen_dirs=()
 for dir in "${CWRAP_DIRS[@]}"; do
@@ -203,7 +204,9 @@ for dir in "${CWRAP_DIRS[@]}"; do
     [[ -n "${_seen_dirs[$dir]+x}" ]] && continue
     _seen_dirs[$dir]=1
     VOL_FLAGS+=(-v "$dir:$dir:z")
-    ADD_DIR_FLAGS+=(--add-dir "$dir")
+    if [[ "$AGENT" == codex ]]; then
+        ADD_DIR_FLAGS+=(--add-dir "$dir")
+    fi
 done
 
 # Pass through terminal detection, then the selected agent's environment

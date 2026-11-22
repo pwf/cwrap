@@ -30,7 +30,8 @@ cwrap [-i <instance>] [dir...] -- <args> # run: claude <args> (codex: --add-dir 
 
 ## Key design decisions
 
-- **Podman only** — no Docker fallback; `--userns=keep-id` for rootless UID mapping
+- **Podman only** — no Docker fallback; `--userns=keep-id` for rootless UID mapping.
+- **One pod per instance** (`cwrap-<instance>`, `--share pid` only) — claude's peer sessions register as `~/.claude/sessions/<pid>.json` and are checked by PID, so the containers of an instance share one PID namespace; separate containers were all PID 1. Cost: sessions of one instance see each other's processes, including `/proc/<pid>/environ` and `/proc/<pid>/root`. Not `--pid=host`: that exposes every host process of the user
 - **Per-instance Containerfile** — lives in the instance dir, build context is that dir
 - **No PWD mount** — only `/home/cwrap` + dirs from `CWRAP_DIRS`/positional args are visible
 - **bash by default** — `CMD ["bash"]`; claude only runs when passthrough args are given

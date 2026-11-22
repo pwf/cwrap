@@ -195,6 +195,10 @@ fi
 mkdir -p "$INSTANCE_HOME_DIR/.config/claude"
 VOL_FLAGS=(-v "$INSTANCE_HOME_DIR:/home/cwrap:z")
 
+# One PID namespace per instance: claude's peer registry (~/.claude/sessions/<pid>.json) needs unique, visible PIDs
+POD="cwrap-$INSTANCE"
+"$RUNTIME" pod exists "$POD" || "$RUNTIME" pod create --name "$POD" --share pid --userns=keep-id --exit-policy stop >/dev/null
+
 # Mount extra dirs. Only codex gets --add-dir (its writable sandbox roots); claude
 # >= 2.1.326 asks to trust every --add-dir folder on each start and never saves it.
 ADD_DIR_FLAGS=()
@@ -275,7 +279,7 @@ if [[ ${#CLI_DIRS[@]} -gt 0 ]]; then
     fi
 fi
 
-exec "$RUNTIME" run --rm -it --userns=keep-id \
+exec "$RUNTIME" run --rm -it --pod "$POD" \
     "${ENV_FLAGS[@]}" \
     "${VOL_FLAGS[@]}" \
     "${WORKDIR_FLAGS[@]}" \

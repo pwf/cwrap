@@ -214,7 +214,7 @@ VOL_FLAGS+=(-v "$SOCK_DIR:$XDG_RUNTIME_DIR/cc-socks:z")
 # OpenShell tools: sandbox <instance>-<tool>; the gateway listens on the host's loopback only and routes by Host header
 NET_FLAGS=()
 if [[ ${#OPENSHELL_TOOLS[@]} -gt 0 ]]; then
-    NET_FLAGS=(--network pasta:-T,127.0.0.1/17670) # IPv4 only: the gateway binds 127.0.0.1, so a forwarded ::1 accepts and then resets
+    NET_FLAGS=(--network pasta:-4,-T,17670) # IPv4 only: the gateway binds 127.0.0.1, so a forwarded ::1 accepts and then resets
     for tool in "${OPENSHELL_TOOLS[@]}"; do
         NET_FLAGS+=(--add-host "default--$INSTANCE-$tool.openshell.localhost:127.0.0.1") # default: the gateway's workspace
     done

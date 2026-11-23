@@ -200,7 +200,11 @@ VOL_FLAGS=(-v "$INSTANCE_HOME_DIR:/home/cwrap:z")
 
 # One PID namespace per instance: claude's peer registry (~/.claude/sessions/<pid>.json) needs unique, visible PIDs
 POD="cwrap-$INSTANCE"
-"$RUNTIME" pod exists "$POD" || "$RUNTIME" pod create --name "$POD" --share pid --userns=keep-id --exit-policy stop >/dev/null
+"$RUNTIME" pod exists "$POD" || "$RUNTIME" pod create --name "$POD" --infra-name "$POD-infra" --share pid --userns=keep-id --exit-policy stop >/dev/null
+
+# Session containers are cwrap-<instance>-<n>, lowest free n
+n=1
+while "$RUNTIME" container exists "$POD-$n"; do n=$((n + 1)); done
 
 # One messaging socket dir per instance; claude accepts it at /run/user/<uid>/cc-socks
 SOCK_DIR="$XDG_RUNTIME_DIR/cwrap/$INSTANCE/cc-socks"
@@ -296,7 +300,7 @@ if [[ ${#CLI_DIRS[@]} -gt 0 ]]; then
     fi
 fi
 
-exec "$RUNTIME" run --rm -it --pod "$POD" \
+exec "$RUNTIME" run --rm -it --pod "$POD" --name "$POD-$n" \
     "${NET_FLAGS[@]}" \
     "${ENV_FLAGS[@]}" \
     "${VOL_FLAGS[@]}" \

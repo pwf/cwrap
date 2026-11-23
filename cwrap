@@ -199,6 +199,11 @@ VOL_FLAGS=(-v "$INSTANCE_HOME_DIR:/home/cwrap:z")
 POD="cwrap-$INSTANCE"
 "$RUNTIME" pod exists "$POD" || "$RUNTIME" pod create --name "$POD" --share pid --userns=keep-id --exit-policy stop >/dev/null
 
+# One messaging socket dir per instance; claude accepts it at /run/user/<uid>/cc-socks
+SOCK_DIR="$XDG_RUNTIME_DIR/cwrap/$INSTANCE/cc-socks"
+mkdir -p -m 700 "$SOCK_DIR"
+VOL_FLAGS+=(-v "$SOCK_DIR:$XDG_RUNTIME_DIR/cc-socks:z")
+
 # Mount extra dirs. Only codex gets --add-dir (its writable sandbox roots); claude
 # >= 2.1.326 asks to trust every --add-dir folder on each start and never saves it.
 ADD_DIR_FLAGS=()
@@ -214,7 +219,7 @@ for dir in "${CWRAP_DIRS[@]}"; do
 done
 
 # Pass through terminal detection, then the selected agent's environment
-ENV_FLAGS=()
+ENV_FLAGS=(-e "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR")
 for var in TERM COLORTERM TERM_PROGRAM TERM_PROGRAM_VERSION; do
     [[ -n "${!var+x}" ]] && ENV_FLAGS+=(-e "$var=${!var}")
 done
@@ -230,10 +235,10 @@ else
 fi
 
 # Forward Wayland socket so chromium can render on the host display
-if [[ -n "${WAYLAND_DISPLAY:-}" && -n "${XDG_RUNTIME_DIR:-}" ]]; then
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
     _wayland_sock="$XDG_RUNTIME_DIR/$WAYLAND_DISPLAY"
     if [[ -S "$_wayland_sock" ]]; then
-        ENV_FLAGS+=(-e "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" -e "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR")
+        ENV_FLAGS+=(-e "WAYLAND_DISPLAY=$WAYLAND_DISPLAY")
         VOL_FLAGS+=(-v "$_wayland_sock:$_wayland_sock")
     fi
 fi

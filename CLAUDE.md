@@ -32,6 +32,7 @@ cwrap [-i <instance>] [dir...] -- <args> # run: claude <args> (codex: --add-dir 
 
 - **Podman only** — no Docker fallback; `--userns=keep-id` for rootless UID mapping.
 - **One pod per instance** (`cwrap-<instance>`, `--share pid` only) — claude's peer sessions register as `~/.claude/sessions/<pid>.json` and are checked by PID, so the containers of an instance share one PID namespace; separate containers were all PID 1. Cost: sessions of one instance see each other's processes, including `/proc/<pid>/environ` and `/proc/<pid>/root`. Not `--pid=host`: that exposes every host process of the user
+- **One socket dir per instance** — `$XDG_RUNTIME_DIR/cwrap/<instance>/cc-socks` on the host, mounted at `/run/user/<uid>/cc-socks`, where claude accepts peer sockets (the host's `XDG_RUNTIME_DIR` is passed through, so it must be the systemd default)
 - **Per-instance Containerfile** — lives in the instance dir, build context is that dir
 - **No PWD mount** — only `/home/cwrap` + dirs from `CWRAP_DIRS`/positional args are visible
 - **bash by default** — `CMD ["bash"]`; claude only runs when passthrough args are given

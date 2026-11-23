@@ -41,7 +41,9 @@ Config: ~/.config/cwrap/
   config                     global config (default_instance=<name>, default_agent=claude|codex)
   instances/<name>/
     Containerfile            per-instance image definition
-    cwrap.conf               CWRAP_DIRS=(...), optional default_agent=claude|codex
+    cwrap.conf               CWRAP_DIRS=(...), optional default_agent=claude|codex,
+                             OPENSHELL_TOOLS=(<tool>...) served by sandboxes <instance>-<tool>
+                             on the host's OpenShell gateway
     home/                    mounted as /home/cwrap inside container
 EOF
             exit 0
@@ -161,8 +163,9 @@ fi
 # run
 # ---------------------------------------------------------------------------
 
-# Source instance config (sets CWRAP_DIRS)
+# Source instance config (sets CWRAP_DIRS, OPENSHELL_TOOLS)
 CWRAP_DIRS=()
+OPENSHELL_TOOLS=()
 if [[ -f "$INSTANCE_DIR/cwrap.conf" ]]; then
     # shellcheck source=/dev/null
     source "$INSTANCE_DIR/cwrap.conf"
@@ -203,6 +206,15 @@ POD="cwrap-$INSTANCE"
 SOCK_DIR="$XDG_RUNTIME_DIR/cwrap/$INSTANCE/cc-socks"
 mkdir -p -m 700 "$SOCK_DIR"
 VOL_FLAGS+=(-v "$SOCK_DIR:$XDG_RUNTIME_DIR/cc-socks:z")
+
+# OpenShell tools: sandbox <instance>-<tool>; the gateway listens on the host's loopback only and routes by Host header
+NET_FLAGS=()
+if [[ ${#OPENSHELL_TOOLS[@]} -gt 0 ]]; then
+    NET_FLAGS=(--network pasta:-T,17670) # forwards the container's loopback port to the host's
+    for tool in "${OPENSHELL_TOOLS[@]}"; do
+        NET_FLAGS+=(--add-host "default--$INSTANCE-$tool.openshell.localhost:127.0.0.1") # default: the gateway's workspace
+    done
+fi
 
 # Mount extra dirs. Only codex gets --add-dir (its writable sandbox roots); claude
 # >= 2.1.326 asks to trust every --add-dir folder on each start and never saves it.
@@ -285,6 +297,7 @@ if [[ ${#CLI_DIRS[@]} -gt 0 ]]; then
 fi
 
 exec "$RUNTIME" run --rm -it --pod "$POD" \
+    "${NET_FLAGS[@]}" \
     "${ENV_FLAGS[@]}" \
     "${VOL_FLAGS[@]}" \
     "${WORKDIR_FLAGS[@]}" \
